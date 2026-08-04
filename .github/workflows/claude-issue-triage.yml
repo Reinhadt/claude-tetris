@@ -50,7 +50,11 @@ jobs:
                Puedes aplicar más de una si corresponde. Si el issue no aplica
                a ninguna (p.ej. spam o vacío), no apliques ninguna.
             4. Publica UN comentario con mcp__github__create_issue_comment con un
-               diagnóstico técnico en español, estructurado así:
+               diagnóstico técnico en español. El comentario debe estar escrito en
+               formato Markdown válido y bien interpretado por GitHub (encabezados,
+               listas, negritas y bloques de código con acento grave delimitando
+               nombres de archivos/funciones/constantes, p.ej. `game.js`,
+               `rotateCW()`), estructurado así:
                - **Resumen**: qué está pasando, en una o dos frases.
                - **Causa probable**: qué parte del código (archivo + función/constante
                  específica, ej. `COLORS` en game.js, `rotateCW()`, `clearLines()`)
