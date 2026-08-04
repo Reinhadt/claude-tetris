@@ -1,0 +1,66 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Triage issue with Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_non_write_users: "*"
+          claude_args: |
+            --allowedTools "Read,Glob,Grep,mcp__github__get_issue,mcp__github__get_issue_comments,mcp__github__update_issue,mcp__github__create_issue_comment"
+          prompt: |
+            Analiza el issue #${{ github.event.issue.number }} del repositorio ${{ github.repository }}.
+
+            Este es un juego de Tetris en JavaScript vanilla (sin build, sin dependencias).
+            La arquitectura completa está documentada en CLAUDE.md — léelo primero para
+            entender la estructura de game.js (modelo de tablero, piezas, rotación,
+            colisión, locking, game loop, scoring, ghost piece, render, input) antes
+            de diagnosticar nada.
+
+            Pasos:
+            1. Usa mcp__github__get_issue para obtener título y cuerpo del issue
+               #${{ github.event.issue.number }}. Usa mcp__github__get_issue_comments
+               si hay contexto adicional en comentarios.
+            2. Lee CLAUDE.md, y luego game.js / index.html / style.css según el área
+               que toque el issue, para entender el código relevante real (no
+               asumas comportamiento sin leerlo).
+            3. Asigna labels apropiadas con mcp__github__update_issue. SOLO puedes
+               usar labels de esta lista exacta (no crees labels nuevas):
+               bug, documentation, duplicate, enhancement, good first issue,
+               help wanted, invalid, question, wontfix.
+               Puedes aplicar más de una si corresponde. Si el issue no aplica
+               a ninguna (p.ej. spam o vacío), no apliques ninguna.
+            4. Publica UN comentario con mcp__github__create_issue_comment con un
+               diagnóstico técnico en español, estructurado así:
+               - **Resumen**: qué está pasando, en una o dos frases.
+               - **Causa probable**: qué parte del código (archivo + función/constante
+                 específica, ej. `COLORS` en game.js, `rotateCW()`, `clearLines()`)
+                 explica el comportamiento reportado.
+               - **Cómo abordarlo**: pasos concretos y acotados para solucionarlo,
+                 mencionando qué tocar y qué NO romper (p.ej. actualizar el canvas
+                 #board si cambian COLS/ROWS/BLOCK).
+               - Si el issue es una pregunta, feature request, o no es accionable,
+                 el diagnóstico puede ser más breve (no fuerces una "causa" que no
+                 existe).
+
+            No hagas cambios de código, no crees PRs, no uses bash. Tu única
+            salida son las labels aplicadas y el comentario de diagnóstico.
