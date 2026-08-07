@@ -26,8 +26,8 @@ There is no test suite, linter, or bundler configured in this repo.
 
 Everything is global, procedural state — no classes, no modules. Key mutable state lives in one destructured `let` block: `board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId`.
 
-- **Board model**: `board` is a `ROWS × COLS` matrix; each cell is `0` (empty) or a color index `1–7` identifying which piece locked there.
-- **Pieces**: the 7 standard tetrominoes are defined as square matrices in `PIECES` (index 0 unused/null). `randomPiece()` deep-copies a shape and centers it at spawn.
+- **Board model**: `board` is a `ROWS × COLS` matrix; each cell is `0` (empty) or a color index `1–8` identifying which piece locked there.
+- **Pieces**: the 7 standard tetrominoes plus an 8th special piece, the **Nut** (`NUT = 8`), are defined as square matrices in `PIECES` (index 0 unused/null). `randomPiece()` deep-copies a shape and centers it at spawn, drawing uniformly from all 8 types. The Nut is a 3×3 ring (`[[8,8,8],[8,0,8],[8,8,8]]`) with a real `0` hole in the center — `collide()` treats it as empty (nothing blocks moving into it) and `merge()` leaves it `0` in `board`, so a row containing an unbroken Nut hole can never satisfy `clearLines()`'s `every(v => v !== 0)` check until the ring is broken from above. `draw()`/`drawNext()` render the hole as a stroked circle via `drawNutHole()`; `isNutHole(r, c)` detects a locked-in hole on the board by checking all 8 neighbors are `NUT`.
 - **Rotation**: `rotateCW(shape)` transposes + reverses rows. `tryRotate()` applies it then tries wall-kick offsets `[0, -1, 1, -2, 2]` columns, keeping the first that doesn't collide.
 - **Collision**: `collide(shape, ox, oy)` checks bounds and overlap against `board`; used for movement, rotation, ghost-piece projection, and spawn (game-over check).
 - **Locking**: `lockPiece()` → `merge()` (writes piece into `board`) → `clearLines()` (scans bottom-up, splices full rows, unshifts empty ones, updates score/lines/level/`dropInterval`) → `spawn()` (promotes `next` to `current`, generates a new `next`, checks game-over collision).
