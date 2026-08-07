@@ -156,11 +156,13 @@ function lockPiece() {
 }
 
 function spawn() {
-  current = next;
-  next = randomPiece();
-  if (collide(current.shape, current.x, current.y)) {
+  const piece = next;
+  if (collide(piece.shape, piece.x, piece.y)) {
     endGame();
+    return;
   }
+  current = piece;
+  next = randomPiece();
   drawNext();
 }
 
@@ -208,6 +210,8 @@ function draw() {
     for (let c = 0; c < COLS; c++)
       drawBlock(ctx, c, r, board[r][c], BLOCK);
 
+  if (!current) return;
+
   // ghost
   const gy = ghostY();
   for (let r = 0; r < current.shape.length; r++)
@@ -234,6 +238,7 @@ function drawNext() {
 
 function endGame() {
   gameOver = true;
+  current = null;
   cancelAnimationFrame(animId);
   overlayTitle.textContent = 'GAME OVER';
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
@@ -267,10 +272,12 @@ function loop(ts) {
     }
   }
   draw();
+  if (gameOver || paused) return;
   animId = requestAnimationFrame(loop);
 }
 
 function init() {
+  cancelAnimationFrame(animId);
   board = createBoard();
   score = 0;
   lines = 0;
@@ -284,7 +291,6 @@ function init() {
   spawn();
   updateHUD();
   overlay.classList.add('hidden');
-  cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
 }
 
