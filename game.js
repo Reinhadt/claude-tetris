@@ -14,6 +14,7 @@ const COLORS = [
   '#90caf9', // J - azul pálido
   '#ffb74d', // L - orange
   '#b0bec5', // NUT - gris metálico
+  '#f06292', // Y - rosa magenta
 ];
 
 const NUT = 8;
@@ -28,17 +29,33 @@ const PIECES = [
   [[6,0,0],[6,6,6],[0,0,0]],                  // J
   [[0,0,7],[7,7,7],[0,0,0]],                  // L
   [[8,8,8],[8,0,8],[8,8,8]],                  // NUT - tuerca con hueco central
+  [[9,0,9],[0,9,0],[0,9,0]],                  // Y - letra Y
 ];
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
+
+const ENERGY_MAX = 100;
+const ENERGY_GAINS = [0, 20, 45, 70, 100]; // indexed by lines cleared in one lock, mirrors LINE_SCORES
+const QUEUE_SIZE = 5;
+const PREVIEW_DURATION = 10000; // ms
+const SLOW_DURATION = 10000; // ms
+const SLOW_FACTOR = 0.6; // fall speed drops to 60% of normal while active
 
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const nextCanvas = document.getElementById('next-canvas');
 const nextCtx = nextCanvas.getContext('2d');
+const previewSection = document.getElementById('preview-section');
+const previewCanvas = document.getElementById('preview-canvas');
+const previewCtx = previewCanvas.getContext('2d');
 const scoreEl = document.getElementById('score');
 const linesEl = document.getElementById('lines');
 const levelEl = document.getElementById('level');
+const energyFill = document.getElementById('energy-fill');
+const abilityButtons = document.getElementById('ability-buttons');
+const abilityPreviewBtn = document.getElementById('ability-preview-btn');
+const abilitySlowBtn = document.getElementById('ability-slow-btn');
+const slowIndicator = document.getElementById('slow-indicator');
 const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
@@ -58,16 +75,20 @@ function currentGridColor() {
   return document.body.classList.contains('light-theme') ? GRID_COLORS.light : GRID_COLORS.dark;
 }
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+let board, current, next, queue, score, lines, level, energy, slowRemaining, previewRemaining, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
 }
 
 function randomPiece() {
-  const type = Math.floor(Math.random() * 8) + 1;
+  const type = Math.floor(Math.random() * (PIECES.length - 1)) + 1;
   const shape = PIECES[type].map(row => [...row]);
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
+}
+
+function fillQueue() {
+  while (queue.length < QUEUE_SIZE) queue.push(randomPiece());
 }
 
 function collide(shape, ox, oy) {
@@ -126,7 +147,48 @@ function clearLines() {
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    addEnergy(ENERGY_GAINS[cleared] || ENERGY_GAINS[ENERGY_GAINS.length - 1]);
     updateHUD();
+  }
+}
+
+function addEnergy(amount) {
+  if (energy >= ENERGY_MAX) return;
+  energy = Math.min(ENERGY_MAX, energy + amount);
+  updateEnergyHUD();
+}
+
+function updateEnergyHUD() {
+  const ready = energy >= ENERGY_MAX;
+  energyFill.style.width = `${(energy / ENERGY_MAX) * 100}%`;
+  energyFill.classList.toggle('full', ready);
+  abilityButtons.classList.toggle('hidden', !ready);
+}
+
+function activateAbility(kind) {
+  if (energy < ENERGY_MAX || gameOver || paused) return;
+  energy = 0;
+  updateEnergyHUD();
+  if (kind === 'preview') {
+    previewRemaining = PREVIEW_DURATION;
+    previewSection.classList.remove('hidden');
+    drawPreviewQueue();
+  } else if (kind === 'slow') {
+    slowRemaining = SLOW_DURATION;
+  }
+}
+
+function updateEffects(dt) {
+  if (previewRemaining > 0) {
+    previewRemaining = Math.max(0, previewRemaining - dt);
+    if (previewRemaining === 0) previewSection.classList.add('hidden');
+  }
+  if (slowRemaining > 0) {
+    slowRemaining = Math.max(0, slowRemaining - dt);
+  }
+  slowIndicator.classList.toggle('hidden', slowRemaining <= 0);
+  if (slowRemaining > 0) {
+    slowIndicator.textContent = `🐢 ${Math.ceil(slowRemaining / 1000)}s`;
   }
 }
 
@@ -160,14 +222,16 @@ function lockPiece() {
 }
 
 function spawn() {
-  const piece = next;
+  const piece = queue.shift();
   if (collide(piece.shape, piece.x, piece.y)) {
     endGame();
     return;
   }
   current = piece;
-  next = randomPiece();
+  fillQueue();
+  next = queue[0];
   drawNext();
+  if (previewRemaining > 0) drawPreviewQueue();
 }
 
 function updateHUD() {
@@ -267,6 +331,21 @@ function drawNext() {
   if (next.type === NUT) drawNutHole(nextCtx, offX + 1, offY + 1, NB);
 }
 
+function drawPreviewQueue() {
+  const NB = 20;
+  previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+  for (let i = 0; i < QUEUE_SIZE && i < queue.length; i++) {
+    const piece = queue[i];
+    const shape = piece.shape;
+    const offX = Math.floor((4 - shape[0].length) / 2);
+    const offY = i * 4 + Math.floor((4 - shape.length) / 2);
+    for (let r = 0; r < shape.length; r++)
+      for (let c = 0; c < shape[r].length; c++)
+        drawBlock(previewCtx, offX + c, offY + r, shape[r][c], NB);
+    if (piece.type === NUT) drawNutHole(previewCtx, offX + 1, offY + 1, NB);
+  }
+}
+
 function endGame() {
   gameOver = true;
   current = null;
@@ -293,8 +372,10 @@ function togglePause() {
 function loop(ts) {
   const dt = ts - lastTime;
   lastTime = ts;
+  updateEffects(dt);
   dropAccum += dt;
-  if (dropAccum >= dropInterval) {
+  const effectiveInterval = slowRemaining > 0 ? dropInterval / SLOW_FACTOR : dropInterval;
+  if (dropAccum >= effectiveInterval) {
     dropAccum = 0;
     if (!collide(current.shape, current.x, current.y + 1)) {
       current.y++;
@@ -313,14 +394,21 @@ function init() {
   score = 0;
   lines = 0;
   level = 1;
+  energy = 0;
+  slowRemaining = 0;
+  previewRemaining = 0;
   paused = false;
   gameOver = false;
   dropInterval = 1000;
   dropAccum = 0;
   lastTime = performance.now();
-  next = randomPiece();
+  queue = [];
+  fillQueue();
   spawn();
   updateHUD();
+  updateEnergyHUD();
+  previewSection.classList.add('hidden');
+  slowIndicator.classList.add('hidden');
   overlay.classList.add('hidden');
   animId = requestAnimationFrame(loop);
 }
@@ -346,11 +434,20 @@ document.addEventListener('keydown', e => {
       e.preventDefault();
       hardDrop();
       break;
+    case 'Digit1':
+      activateAbility('preview');
+      break;
+    case 'Digit2':
+      activateAbility('slow');
+      break;
   }
   updateHUD();
 });
 
 restartBtn.addEventListener('click', init);
+
+abilityPreviewBtn.addEventListener('click', () => activateAbility('preview'));
+abilitySlowBtn.addEventListener('click', () => activateAbility('slow'));
 
 themeToggle.addEventListener('change', () => {
   applyTheme(themeToggle.checked ? 'light' : 'dark');

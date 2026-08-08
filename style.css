@@ -124,6 +124,82 @@ body {
   transition: background 0.2s, border-color 0.2s;
 }
 
+/* ---- Energía / habilidades ---- */
+.energy-bar {
+  width: 100%;
+  height: 14px;
+  background: var(--kbd-bg);
+  border: 1px solid var(--kbd-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.energy-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--value-color);
+  transition: width 0.15s ease-out;
+}
+
+.energy-fill.full {
+  background: linear-gradient(90deg, #ffd54f, #f06292);
+  animation: energy-pulse 1s ease-in-out infinite;
+}
+
+@keyframes energy-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.ability-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.ability-btn {
+  background: var(--kbd-bg);
+  border: 1px solid var(--kbd-border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.ability-btn:hover {
+  background: var(--btn-bg);
+  color: var(--btn-text);
+}
+
+.ability-btn:active {
+  transform: scale(0.97);
+}
+
+.slow-indicator {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--overlay-title-color);
+  margin-top: 2px;
+}
+
+#preview-canvas {
+  display: block;
+  border: 1px solid var(--board-border);
+  background: var(--board-bg);
+  border-radius: 4px;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.hidden {
+  display: none;
+}
+
 /* ---- Theme switch ---- */
 .theme-switch {
   position: relative;
